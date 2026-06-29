@@ -249,6 +249,27 @@ docker-compose up -d --build
 docker-compose exec backend alembic upgrade head
 ```
 
+### Deploying On Vercel
+
+This repo is split into a Vite frontend and a FastAPI backend, so Vercel needs a root [`vercel.json`](C:\DV Projects\i-cgs\vercel.json) to understand the two services.
+
+For a single multi-service Vercel project:
+
+1. Import the repository in Vercel from the repository root.
+2. Keep the detected services from `vercel.json`:
+   - `frontend` rooted at `frontend`
+   - `backend` rooted at `backend`
+3. In the `frontend` service environment variables, set:
+   - `VITE_API_URL=/_backend`
+4. In the `backend` service environment variables, set at minimum:
+   - `DATABASE_URL`
+   - `SYNC_DATABASE_URL`
+   - `SECRET_KEY`
+   - `FRONTEND_URL`
+   - SMTP settings if email is enabled
+
+Important: the backend currently stores generated templates, PDFs, QR codes, and ZIP files on the local filesystem under `storage/`. Vercel functions use ephemeral storage, so generated files will not persist reliably across invocations. For production, move storage to an external service such as S3, R2, or Supabase Storage before relying on Vercel for the backend.
+
 ---
 
 ## Technology Stack
