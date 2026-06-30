@@ -56,15 +56,6 @@ export default function CertificateDetail() {
     }
   }
 
-  const sendEmail = useMutation({
-    mutationFn: () => certificatesAPI.sendEmail(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['certificate', id])
-      toast.success('Email sent!')
-    },
-    onError: () => toast.error('Failed to send email'),
-  })
-
   const regenerate = useMutation({
     mutationFn: () => certificatesAPI.regenerate(id),
     onSuccess: () => {
@@ -120,13 +111,6 @@ export default function CertificateDetail() {
       time: cert.generated_at,
       active: cert.status === 'generated' || cert.status === 'emailed',
     },
-    {
-      icon: Mail,
-      title: 'Email Sent',
-      description: `Email delivered to ${cert.email}`,
-      time: cert.email_sent_at,
-      active: cert.email_sent || cert.status === 'emailed',
-    },
   ]
 
   return (
@@ -148,10 +132,6 @@ export default function CertificateDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={downloadPDF} className="btn-secondary text-sm">
             <Download size={15} /> Download PDF
-          </button>
-          <button onClick={() => sendEmail.mutate()} disabled={sendEmail.isPending} className="btn-primary text-sm">
-            {sendEmail.isPending ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
-            Send Email
           </button>
           <button onClick={() => regenerate.mutate()} disabled={regenerate.isPending} className="btn-secondary text-sm">
             {regenerate.isPending ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}

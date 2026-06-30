@@ -15,7 +15,6 @@ import { useTheme } from '../contexts/ThemeContext'
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/templates', icon: Image, label: 'Templates' },
-  { to: '/settings', icon: Mail, label: 'Email Settings' },
 ]
 
 const getHeaderInfo = (pathname) => {
@@ -38,13 +37,6 @@ const getHeaderInfo = (pathname) => {
       workspace: 'ADMIN WORKSPACE',
       title: 'New Template',
       subtitle: 'Upload and configure a certificate template'
-    }
-  }
-  if (pathname === '/settings') {
-    return {
-      workspace: 'ADMIN WORKSPACE',
-      title: 'Email Settings',
-      subtitle: 'Configure your SMTP email provider and test connection'
     }
   }
   if (pathname.includes('/edit')) {

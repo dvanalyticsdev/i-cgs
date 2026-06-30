@@ -26,13 +26,6 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: str = ""
     AWS_S3_REGION: str = "us-east-1"
 
-    # Email
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    EMAIL_FROM_NAME: str = "Certificate Management System"
-    EMAIL_ENABLED: bool = False
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"

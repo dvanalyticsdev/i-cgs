@@ -33,7 +33,6 @@ import { formatDate, formatDateTime } from '../utils/formatters'
 const TABS = [
   { id: 'upload', label: 'Upload Excel', icon: FileSpreadsheet },
   { id: 'certificates', label: 'Certificates', icon: Award },
-  { id: 'email', label: 'Email Status', icon: Mail },
 ]
 
 function Tab1Upload({ eventId, onGenerate }) {
@@ -92,7 +91,7 @@ function Tab1Upload({ eventId, onGenerate }) {
           accept={{ 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }}
           maxSize={20 * 1024 * 1024}
           label="Drop Excel file (.xlsx)"
-          hint="Must contain columns: name, email"
+          hint="Must contain column: name"
         />
       </div>
 
@@ -197,14 +196,6 @@ function Tab2Certificates({ eventId, status }) {
     refetchInterval: status?.status === 'processing' ? 3000 : false,
   })
 
-  const sendEmailsMutation = useMutation({
-    mutationFn: () => eventsAPI.sendEmails(eventId),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['event-certificates', eventId])
-      toast.success('Emails queued for sending!')
-    },
-    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to send emails'),
-  })
 
   const downloadZip = async () => {
     try {
@@ -216,14 +207,6 @@ function Tab2Certificates({ eventId, status }) {
     }
   }
 
-  const sendSingle = async (certId) => {
-    try {
-      await certificatesAPI.sendEmail(certId)
-      toast.success('Email sent!')
-    } catch {
-      toast.error('Failed to send email')
-    }
-  }
 
   const deleteCert = useMutation({
     mutationFn: (id) => certificatesAPI.delete(id),
@@ -264,9 +247,6 @@ function Tab2Certificates({ eventId, status }) {
       header: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-1">
-          <button onClick={() => sendSingle(row.id)} className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-500" title="Send Email">
-            <Send size={13} />
-          </button>
           <button onClick={() => window.open(`/verify/${row.certificate_id}`, '_blank')} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Verify">
             <Eye size={13} />
           </button>
@@ -301,17 +281,7 @@ function Tab2Certificates({ eventId, status }) {
             <Download size={14} />
             Download All (ZIP)
           </button>
-          <button
-            onClick={() => sendEmailsMutation.mutate()}
-            disabled={sendEmailsMutation.isPending}
-            className="btn-primary text-xs py-2"
-          >
-            {sendEmailsMutation.isPending ? (
-              <><Loader2 size={14} className="animate-spin" /> Sending...</>
-            ) : (
-              <><Mail size={14} /> Send All Emails</>
-            )}
-          </button>
+
         </div>
       )}
 
@@ -327,59 +297,7 @@ function Tab2Certificates({ eventId, status }) {
   )
 }
 
-function Tab3EmailStatus({ eventId }) {
-  const { data: emailStatus, isLoading } = useQuery({
-    queryKey: ['event-email-status', eventId],
-    queryFn: () => eventsAPI.getEmailStatus(eventId).then(r => r.data),
-    refetchInterval: 10000,
-  })
 
-  const stats = [
-    { label: 'Sent', value: emailStatus?.sent ?? 0, color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'Pending', value: emailStatus?.pending ?? 0, color: 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' },
-    { label: 'Failed', value: emailStatus?.failed ?? 0, color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' },
-  ]
-
-  return (
-    <div className="space-y-5">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <div key={s.label} className={`card p-4 text-center ${s.color}`}>
-            <p className="text-2xl font-bold">{isLoading ? '—' : s.value}</p>
-            <p className="text-xs font-medium mt-0.5 opacity-80">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Email status per cert */}
-      {emailStatus?.details && emailStatus.details.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="table-header">Recipient</th>
-                <th className="table-header">Email</th>
-                <th className="table-header">Status</th>
-                <th className="table-header">Sent At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {emailStatus.details.map((row, i) => (
-                <tr key={i} className="table-row">
-                  <td className="table-cell font-medium">{row.name || '—'}</td>
-                  <td className="table-cell text-xs text-gray-500">{row.email || '—'}</td>
-                  <td className="table-cell"><StatusBadge status={row.email_status} /></td>
-                  <td className="table-cell text-xs">{formatDateTime(row.email_sent_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -451,7 +369,7 @@ export default function EventDetail() {
 
       {/* Event info card */}
       <div className="card p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Template</p>
             <p className="font-semibold text-gray-800 dark:text-gray-200">{event.template_name || event.template?.name || '—'}</p>
@@ -463,10 +381,6 @@ export default function EventDetail() {
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Total Certs</p>
             <p className="font-semibold text-gray-800 dark:text-gray-200">{event.total_certificates ?? 0}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Emails Sent</p>
-            <p className="font-semibold text-gray-800 dark:text-gray-200">{event.emails_sent ?? 0}</p>
           </div>
         </div>
       </div>
@@ -497,9 +411,7 @@ export default function EventDetail() {
           {activeTab === 'certificates' && (
             <Tab2Certificates eventId={id} status={status} />
           )}
-          {activeTab === 'email' && (
-            <Tab3EmailStatus eventId={id} />
-          )}
+
         </div>
       </div>
     </div>

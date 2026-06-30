@@ -6,7 +6,6 @@ Certificate routes:
   GET    /{certificate_id}/download     — stream PDF
   POST   /{certificate_id}/regenerate   — regenerate PDF
   DELETE /{certificate_id}              — delete certificate
-  POST   /{certificate_id}/send-email   — send email for this certificate
 """
 
 import io
@@ -28,7 +27,6 @@ from app.models.certificate import Certificate
 from app.models.event import Event
 from app.models.template import Template
 from app.schemas.certificate import CertificateResponse
-from app.services.email_service import email_service
 from app.services.pdf_service import pdf_service
 from app.services.storage_service import storage_service
 
@@ -267,56 +265,6 @@ async def delete_certificate(
     await db.delete(cert)
     await db.commit()
 
-
-# ────────────────────────────────────────────────────────────────────────────
-#  Send email
-# ────────────────────────────────────────────────────────────────────────────
-
-
-@router.post("/{certificate_id}/send-email", summary="Send certificate email")
-async def send_certificate_email(
-    certificate_id: str,
-    request: Request,
-    current_admin: Admin = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-) -> Dict[str, str]:
-    cert = await _get_cert_or_404(certificate_id, db)
-
-    if not cert.attendee_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This certificate has no email address on record.",
-        )
-    if not cert.pdf_path or not storage_service.file_exists(cert.pdf_path):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Certificate PDF has not been generated yet.",
-        )
-
-    try:
-        sent = await email_service.send_certificate_email(
-            to_email=cert.attendee_email,
-            attendee_name=cert.attendee_name,
-            course_name=cert.course_name or "",
-            certificate_id=cert.certificate_id,
-            pdf_path=cert.pdf_path,
-        )
-        if sent:
-            cert.email_sent = True
-            cert.email_sent_at = datetime.utcnow()
-            cert.status = "emailed"
-            cert.email_error = None
-            await db.commit()
-            return {"message": f"Email sent to {cert.attendee_email}.", "status": "sent"}
-        else:
-            return {"message": "Email sending is disabled.", "status": "disabled"}
-    except Exception as exc:
-        cert.email_error = str(exc)
-        await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send email: {exc}",
-        )
 
 
 # ────────────────────────────────────────────────────────────────────────────

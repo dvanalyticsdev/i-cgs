@@ -14,7 +14,6 @@ from app.api.v1 import auth as auth_router_module
 from app.api.v1 import (
     certificates,
     dashboard,
-    email_router,
     events,
     excel,
     templates,
@@ -124,11 +123,6 @@ app.include_router(
     excel.router,
     prefix=API_V1,
     tags=["Excel"],
-)
-app.include_router(
-    email_router.router,
-    prefix=f"{API_V1}/email",
-    tags=["Email"],
 )
 app.include_router(
     verification.router,

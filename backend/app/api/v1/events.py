@@ -7,8 +7,6 @@ Event routes:
   DELETE /{event_id}                 — delete event + all certificates + files
   GET    /{event_id}/status          — generation progress
   GET    /{event_id}/download-zip    — stream ZIP of generated PDFs
-  POST   /{event_id}/send-emails     — trigger bulk email (background)
-  GET    /{event_id}/email-status    — email delivery stats
 """
 
 import io
@@ -35,7 +33,6 @@ from app.models.admin import Admin
 from app.models.certificate import Certificate
 from app.models.event import Event
 from app.schemas.event import EventCreate, EventResponse, EventUpdate
-from app.services.email_service import email_service
 from app.services.storage_service import storage_service
 from app.services.zip_service import zip_service
 
@@ -317,117 +314,6 @@ async def download_event_zip(
         headers={"Content-Disposition": f'attachment; filename="{safe_name}_certificates.zip"'},
     )
 
-
-# ────────────────────────────────────────────────────────────────────────────
-#  Bulk email send
-# ────────────────────────────────────────────────────────────────────────────
-
-
-async def _send_event_emails_task(event_id: str) -> None:
-    """Background task: send emails for all generated + un-emailed certificates."""
-    from datetime import datetime
-
-    from app.core.database import AsyncSessionLocal
-    from app.models.certificate import Certificate
-
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(
-                select(Certificate).where(
-                    Certificate.event_id == uuid.UUID(event_id),
-                    Certificate.email_sent == False,  # noqa: E712
-                    Certificate.attendee_email.isnot(None),
-                    Certificate.status.in_(["generated", "emailed"]),
-                )
-            )
-            certs = result.scalars().all()
-
-            for cert in certs:
-                try:
-                    sent = await email_service.send_certificate_email(
-                        to_email=cert.attendee_email,
-                        attendee_name=cert.attendee_name,
-                        course_name=cert.course_name or "",
-                        certificate_id=cert.certificate_id,
-                        pdf_path=cert.pdf_path or "",
-                    )
-                    if sent:
-                        cert.email_sent = True
-                        cert.email_sent_at = datetime.utcnow()
-                        cert.status = "emailed"
-                        cert.email_error = None
-                except Exception as exc:
-                    cert.email_error = str(exc)
-                    logger.error("Email failed for cert %s: %s", cert.certificate_id, exc)
-
-            await db.commit()
-        except Exception as exc:
-            logger.error("Bulk email task failed for event %s: %s", event_id, exc)
-
-
-@router.post("/{event_id}/send-emails", summary="Trigger bulk email send for event")
-async def send_event_emails(
-    event_id: str,
-    background_tasks: BackgroundTasks,
-    current_admin: Admin = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-) -> Dict[str, str]:
-    event = await _get_event_or_404(event_id, db)
-    background_tasks.add_task(_send_event_emails_task, str(event.id))
-    return {"message": "Bulk email job queued.", "event_id": str(event.id)}
-
-
-# ────────────────────────────────────────────────────────────────────────────
-#  Email stats
-# ────────────────────────────────────────────────────────────────────────────
-
-
-@router.get("/{event_id}/email-status", summary="Get email delivery stats for event")
-async def get_email_status(
-    event_id: str,
-    current_admin: Admin = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
-    event = await _get_event_or_404(event_id, db)
-
-    total_result = await db.execute(
-        select(func.count()).select_from(Certificate).where(
-            Certificate.event_id == event.id
-        )
-    )
-    total = total_result.scalar_one()
-
-    sent_result = await db.execute(
-        select(func.count()).select_from(Certificate).where(
-            Certificate.event_id == event.id,
-            Certificate.email_sent == True,  # noqa: E712
-        )
-    )
-    sent = sent_result.scalar_one()
-
-    failed_result = await db.execute(
-        select(func.count()).select_from(Certificate).where(
-            Certificate.event_id == event.id,
-            Certificate.email_error.isnot(None),
-        )
-    )
-    failed = failed_result.scalar_one()
-
-    no_email_result = await db.execute(
-        select(func.count()).select_from(Certificate).where(
-            Certificate.event_id == event.id,
-            Certificate.attendee_email.is_(None),
-        )
-    )
-    no_email = no_email_result.scalar_one()
-
-    return {
-        "total": total,
-        "sent": sent,
-        "failed": failed,
-        "no_email": no_email,
-        "pending": total - sent - failed - no_email,
-    }
 
 
 # ────────────────────────────────────────────────────────────────────────────

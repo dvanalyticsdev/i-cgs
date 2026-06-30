@@ -60,12 +60,6 @@ export default function Certificates() {
     }
   }
 
-  const sendEmail = useMutation({
-    mutationFn: (id) => certificatesAPI.sendEmail(id),
-    onSuccess: () => toast.success('Email sent!'),
-    onError: () => toast.error('Failed to send email'),
-  })
-
   const regenerate = useMutation({
     mutationFn: (id) => certificatesAPI.regenerate(id),
     onSuccess: () => {
@@ -131,15 +125,6 @@ export default function Certificates() {
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
-      key: 'email_status',
-      header: 'Email',
-      render: (row) => (
-        <span className={`text-xs font-medium ${row.email_sent ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>
-          {row.email_sent ? '✓ Sent' : 'Not sent'}
-        </span>
-      ),
-    },
-    {
       key: 'actions',
       header: 'Actions',
       render: (row) => (
@@ -149,9 +134,6 @@ export default function Certificates() {
           </button>
           <button onClick={() => downloadCert(row)} className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-500" title="Download PDF">
             <Download size={13} />
-          </button>
-          <button onClick={() => sendEmail.mutate(row.id)} className="p-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-500" title="Send Email">
-            <Mail size={13} />
           </button>
           <button onClick={() => regenerate.mutate(row.id)} className="p-1 rounded hover:bg-yellow-50 dark:hover:bg-yellow-900/20 text-yellow-500" title="Regenerate">
             <RefreshCw size={13} />

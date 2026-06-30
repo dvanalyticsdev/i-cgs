@@ -66,14 +66,6 @@ export default function EventGenerate() {
     onError: (err) => toast.error(err.response?.data?.detail || 'Failed to start generation'),
   })
 
-  const sendEmailsMutation = useMutation({
-    mutationFn: () => eventsAPI.sendEmails(id),
-    onSuccess: () => {
-      toast.success('Emails queued for sending!')
-    },
-    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to send emails'),
-  })
-
   const downloadZip = async () => {
     try {
       const res = await eventsAPI.downloadZip(id)
@@ -219,17 +211,6 @@ export default function EventGenerate() {
                 <button onClick={downloadZip} className="w-full btn-secondary justify-center py-2.5">
                   <Download size={16} />
                   Download All as ZIP
-                </button>
-                <button
-                  onClick={() => sendEmailsMutation.mutate()}
-                  disabled={sendEmailsMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition-colors"
-                >
-                  {sendEmailsMutation.isPending ? (
-                    <><Loader2 size={16} className="animate-spin" /> Sending...</>
-                  ) : (
-                    <><Mail size={16} /> Send All via Email</>
-                  )}
                 </button>
               </>
             )}
